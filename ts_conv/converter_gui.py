@@ -86,39 +86,30 @@ class SettingsGUI(QWidget):
 
     def dragEnterEvent(self, event):
         logger = logging.getLogger()
-        event.accept()
         mimeData = event.mimeData()
         logger.debug('dragEnterEvent')
         for mimetype in mimeData.formats():
             logger.debug('MIMEType: {0}'.format(mimetype))
             logger.debug('Data: {0}'.format(mimeData.data(mimetype)))
+        #Check MIME type
+        if mimeData.hasUrls():
+            event.acceptProposedAction()
 
     def dropEvent(self, event):
         logger = logging.getLogger()
-        event.accept()
         mimeData = event.mimeData()
         logger.debug('dropEvent')
         for mimetype in mimeData.formats():
             logger.debug('MIMEType: {0}'.format(mimetype))
             logger.debug('Data: {0}'.format(mimeData.data(mimetype)))
-        #Open only when:
-        #1. Only file is given
-        #3. and the mimetipe is text/uri-list
-        #2. That has the regular extension.
         logger.debug("len:{0}".format(len(mimeData.formats())))
-        if len(mimeData.formats()) == 1:
-            mimetype = mimeData.formats()[0]
-            if mimetype == "text/uri-list":
-                data = mimeData.data(mimetype)
-                from urllib.parse import urlparse, unquote
-                for line in bytes(data).decode('utf8').splitlines():
-                    parsed = urlparse(unquote(line))
-                    logger.debug('Data: {0}'.format(parsed))
-                    if parsed.scheme == 'file':
-                        self.filename = parsed.path
-                        #Start immediately
-                        self.start_process()
-        #or just ignore
+        for url in mimeData.urls():
+            logger.debug('Data: {0}'.format(url.toString()))
+            if url.isLocalFile():
+                event.acceptProposedAction()
+                self.filename = url.toLocalFile()
+                #Start immediately
+                self.start_process()
 
 
 
