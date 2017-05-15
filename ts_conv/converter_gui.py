@@ -4,7 +4,7 @@
 #Core of the GUI and image process
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QPushButton, QCheckBox, QFileDialog, QProgressBar
 from PyQt5.QtGui     import QPalette, QPainter
-from PyQt5.QtCore    import QTranslator, QLocale, Qt
+from PyQt5.QtCore    import QFileInfo, QTranslator, QLocale, Qt
 import cv2
 import numpy as np
 import math
@@ -93,7 +93,12 @@ class SettingsGUI(QWidget):
             logger.debug('Data: {0}'.format(mimeData.data(mimetype)))
         #Check MIME type
         if mimeData.hasUrls():
-            event.acceptProposedAction()
+            for url in mimeData.urls():
+                if url.isLocalFile():
+                    file_info = QFileInfo(url.toLocalFile())
+                    #Check if a file readable
+                    if file_info.isFile() and file_info.isReadable():
+                        event.acceptProposedAction()
 
     def dropEvent(self, event):
         logger = logging.getLogger()
