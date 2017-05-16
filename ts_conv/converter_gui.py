@@ -4,7 +4,8 @@
 #Core of the GUI and image process
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QPushButton, QCheckBox, QFileDialog, QProgressBar
 from PyQt5.QtGui     import QPalette, QPainter
-from PyQt5.QtCore    import QFileInfo, QTranslator, QLocale, Qt
+from PyQt5.QtCore    import QFileInfo, QObject, QThread, QTranslator, QLocale, Qt, pyqtSignal, pyqtSlot
+from enum import Flag
 import cv2
 import numpy as np
 import math
@@ -26,7 +27,69 @@ import sys
 
 #Drag and drop work. Buttons would not be necessary.
 
+class ImageProcessType(Flag):
+    NONE         = 0
+    FINISH_PREF  = 1
+    FINISH_HELIX = 2
+    FINISH_RECT  = 4
 
+class ImageProcess(QObject):
+    def __init__(self, process_type, filenames, parent = None):
+        super(ImageProcess, self).__init__(parent)
+
+        self.process_type = process_type
+        self.filenames = filenames
+        self.progress = 0
+        self.stage = 2
+        if self.process_type & ImageProcessType.FINISH_PREF:
+            self.stage += 2
+        if self.process_type & ImageProcessType.FINISH_HELIX:
+            self.stage += 2
+        if self.process_type & ImageProcessType.FINISH_RECT:
+            self.stage += 2
+
+    def increase_progress(self):
+        self.progress += 100 / self.stage / len(self.filenames)
+        self.progress_changed.emit(self.progress)
+
+    @pyqtSlot()
+    def start_process(self):
+        logger = logging.getLogger()
+
+        for filename in self.filenames:
+            if filename[-6:] == ".pngs/":
+                filename = filename[:-1]
+                cachedimage = CachedImage("inherit",
+                                          dir=filename,
+                                          disposal=False)
+                logger.debug(":: {0}".format(cachedimage))
+                img = cachedimage.get_region(None)
+            else:
+                img = cv2.imread(filename)
+                self.increase_progress()
+            if self.process_type & ImageProcessType.FINISH_PREF:
+                img = film.filmify( img )
+                self.increase_progress()
+                filename += ".film.png"
+                cv2.imwrite(filename, img)
+                self.increase_progress()
+            if self.process_type & ImageProcessType.FINISH_HELIX:
+                self.increase_progress()
+                himg = helix.helicify( img )
+                self.increase_progress()
+                cv2.imwrite(filename + ".helix.png", himg)
+            if self.process_type & ImageProcessType.FINISH_RECT:
+                self.increase_progress()
+                rimg = rect.rectify( img )
+                self.increase_progress()
+                cv2.imwrite(filename + ".rect.png", rimg)
+            self.increase_progress()
+
+        self.progress_changed.emit(100)
+        self.finished.emit()
+
+    progress_changed = pyqtSignal(int, name = "progressChanged")
+    finished = pyqtSignal()
 
 #https://www.tutorialspoint.com/pyqt/pyqt_qfiledialog_widget.htm
 class SettingsGUI(QWidget):
@@ -42,49 +105,16 @@ class SettingsGUI(QWidget):
         self.btn_finish_rect = QCheckBox(self.tr('Make a rectangular image'))
         finish_layout.addWidget(self.btn_finish_rect)
         self.pbar = QProgressBar()
-        self.pbar.setValue(0)
-        self.pbar.setRange(0,8)
         finish_layout.addWidget(self.pbar)
 
         self.setLayout(finish_layout)
         self.setWindowTitle("Drag&Drop files")
-		
-        
-    def start_process(self):
-        logger = logging.getLogger()
-        self.pbar.setValue(0)
-        if self.filename[-6:] == ".pngs/":
-            self.filename = self.filename[:-1]
-            cachedimage = CachedImage("inherit",
-                                      dir=self.filename,
-                                      disposal=False)
-            logger.debug(":: {0}".format(cachedimage))
-            img = cachedimage.get_region(None)
-        else:
-            img = cv2.imread(self.filename)
-        file_name = self.filename
-        self.pbar.setValue(1)
-        if self.btn_finish_perf.isChecked():
-            img = film.filmify( img )
-            self.pbar.setValue(2)
-            file_name += ".film.png"
-            cv2.imwrite(file_name, img)
-            self.pbar.setValue(3)
-        if self.btn_finish_helix.isChecked():
-            self.pbar.setValue(4)
-            himg = helix.helicify( img )
-            self.pbar.setValue(5)
-            cv2.imwrite(file_name + ".helix.png", himg)
-        if self.btn_finish_rect.isChecked():
-            self.pbar.setValue(6)
-            rimg = rect.rectify( img )
-            self.pbar.setValue(7)
-            cv2.imwrite(file_name + ".rect.png", rimg)
-        self.pbar.setValue(8)
 
-
+        self.thread = QThread()
 
     def dragEnterEvent(self, event):
+        if self.thread.isRunning():
+            return
         logger = logging.getLogger()
         mimeData = event.mimeData()
         logger.debug('dragEnterEvent')
@@ -108,14 +138,26 @@ class SettingsGUI(QWidget):
             logger.debug('MIMEType: {0}'.format(mimetype))
             logger.debug('Data: {0}'.format(mimeData.data(mimetype)))
         logger.debug("len:{0}".format(len(mimeData.formats())))
-        for url in mimeData.urls():
-            logger.debug('Data: {0}'.format(url.toString()))
-            if url.isLocalFile():
-                event.acceptProposedAction()
-                self.filename = url.toLocalFile()
-                #Start immediately
-                self.start_process()
 
+        filenames = [url for url in mimeData.urls() if url.isLocalFile()]
+        filenames = [url.toLocalFile() for url in filenames]
+
+        if len(filenames) > 0:
+            process_type = ImageProcessType.NONE
+            if self.btn_finish_perf.isChecked():
+                process_type = process_type | ImageProcessType.FINISH_PREF
+            if self.btn_finish_helix.isChecked():
+                process_type = process_type | ImageProcessType.FINISH_HELIX
+            if self.btn_finish_rect.isChecked():
+                process_type = process_type | ImageProcessType.FINISH_RECT
+            self.process = ImageProcess(process_type, filenames)
+            self.process.progress_changed.connect(self.pbar.setValue)
+
+            self.process.moveToThread(self.thread)
+            self.process.finished.connect(self.thread.quit)
+            self.thread.started.connect(self.process.start_process)
+
+            self.thread.start()
 
 
 #for pyinstaller
