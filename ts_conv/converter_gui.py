@@ -2,7 +2,7 @@
 #-*- coding: utf-8 -*-
 
 #Core of the GUI and image process
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QPushButton, QCheckBox, QFileDialog, QProgressBar
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QPushButton, QCheckBox, QFileDialog, QMessageBox, QProgressBar
 from PyQt5.QtGui     import QPalette, QPainter
 from PyQt5.QtCore    import QFileInfo, QObject, QThread, QTranslator, QLocale, Qt, pyqtSignal, pyqtSlot
 from enum import Flag
@@ -57,6 +57,8 @@ class ImageProcess(QObject):
         logger = logging.getLogger()
 
         for filename in self.filenames:
+            if QThread.currentThread().isInterruptionRequested():
+                return
             if filename[-6:] == ".pngs/":
                 filename = filename[:-1]
                 cachedimage = CachedImage("inherit",
@@ -67,23 +69,33 @@ class ImageProcess(QObject):
             else:
                 img = cv2.imread(filename)
                 self.increase_progress()
+                
+            if QThread.currentThread().isInterruptionRequested():
+                return
             if self.process_type & ImageProcessType.FINISH_PREF:
                 img = film.filmify( img )
                 self.increase_progress()
                 filename += ".film.png"
                 cv2.imwrite(filename, img)
                 self.increase_progress()
+                
+            if QThread.currentThread().isInterruptionRequested():
+                return
             if self.process_type & ImageProcessType.FINISH_HELIX:
                 self.increase_progress()
                 himg = helix.helicify( img )
                 self.increase_progress()
                 cv2.imwrite(filename + ".helix.png", himg)
+                self.increase_progress()
+                
+            if QThread.currentThread().isInterruptionRequested():
+                return
             if self.process_type & ImageProcessType.FINISH_RECT:
                 self.increase_progress()
                 rimg = rect.rectify( img )
                 self.increase_progress()
                 cv2.imwrite(filename + ".rect.png", rimg)
-            self.increase_progress()
+                self.increase_progress()
 
         self.progress_changed.emit(100)
         self.finished.emit()
@@ -111,6 +123,22 @@ class SettingsGUI(QWidget):
         self.setWindowTitle("Drag&Drop files")
 
         self.thread = QThread()
+
+    def closeEvent(self, event):
+        if self.thread.isRunning():
+            box = QMessageBox(QMessageBox.Question,
+                              "Quit",
+                              "Do you want to interrupt processing?",
+                              QMessageBox.Yes | QMessageBox.No,
+                              self)
+            self.thread.finished.connect(box.reject)
+            if box.exec() == QMessageBox.Yes:
+                self.thread.quit()
+                self.thread.requestInterruption()
+                self.thread.wait()
+                event.accept()
+            else:
+                event.ignore()
 
     def dragEnterEvent(self, event):
         if self.thread.isRunning():
