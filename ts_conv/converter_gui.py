@@ -5,7 +5,7 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QApplication, QPushButton, QCheckBox, QFileDialog, QMessageBox, QProgressBar
 from PyQt5.QtGui     import QPalette, QPainter
 from PyQt5.QtCore    import QFileInfo, QObject, QThread, QTranslator, QLocale, Qt, pyqtSignal, pyqtSlot
-from enum import Flag
+from enum import IntEnum
 import cv2
 import numpy as np
 import math
@@ -27,7 +27,7 @@ import sys
 
 #Drag and drop work. Buttons would not be necessary.
 
-class ImageProcessType(Flag):
+class ImageProcessType(IntEnum):
     NONE         = 0
     FINISH_PREF  = 1
     FINISH_HELIX = 2
