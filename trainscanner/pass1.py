@@ -182,7 +182,7 @@ def prepare_parser():
                         default=10,
                         dest="trailing",
                         help="Trailing frames after the train runs away.")
-    parser.add_argument('-r', '--rotate', type=int,
+    parser.add_argument('-r', '--rotate', type=float,
                         default=0,
                         dest="rotate",
                         help="Image rotation.")

@@ -84,7 +84,7 @@ def prepare_parser(parser=None):
                         nargs=4, default=None,
                         dest="perspective",
                         help="Specity perspective warp.")
-    parser.add_argument('-r', '--rotate', type=int,
+    parser.add_argument('-r', '--rotate', type=float,
                         default=0,
                         dest="rotate",
                         help="Image rotation.")

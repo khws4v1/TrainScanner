@@ -632,7 +632,7 @@ class SettingsGUI(QWidget):
 
         common_options = []
         common_options += ["--perspective",] + [str(x) for x in self.editor.perspective]
-        common_options += ["--rotate", "{0}".format(self.editor.angle_degree)]
+        common_options += ["--rotate", "{0:.1f}".format(self.editor.angle_degree)]
         common_options += ["--crop",] + [str(x) for x in (self.editor.croptop,self.editor.cropbottom)]
         pass1_options = []
         pass1_options += ["--trail", "{0}".format(self.trailing)]
@@ -691,7 +691,7 @@ class EditorGUI(QWidget):
         #self.skip       = 0
         logger = logging.getLogger()
         self.perspective = [0,0,1000,1000]
-        self.angle_degree    = 0
+        self.angle_degree    = 0.0
         self.focus = [333,666,333,666]
         self.croptop = 0
         self.cropbottom = 1000
@@ -769,13 +769,13 @@ class EditorGUI(QWidget):
         self.btn = QPushButton(self.tr("-90"))
         self.btn.clicked.connect(self.angle_sub90)
         rotation_layout.addWidget(self.btn)
-        self.btn = QPushButton(self.tr("-1"))
+        self.btn = QPushButton(self.tr("-0.1"))
         self.btn.clicked.connect(self.angle_dec)
         rotation_layout.addWidget(self.btn)
         rotation_layout.addWidget(QLabel(self.tr('rotation')))
         self.angle_label = QLabel("0 "+self.tr("degrees"))
         rotation_layout.addWidget(self.angle_label)
-        self.btn = QPushButton(self.tr("+1"))
+        self.btn = QPushButton(self.tr("+0.1"))
         self.btn.clicked.connect(self.angle_inc)
         rotation_layout.addWidget(self.btn)
         self.btn = QPushButton(self.tr("+90"))
@@ -875,30 +875,30 @@ class EditorGUI(QWidget):
         self.thread.wait()
         
     def angle_inc(self):
-        self.angle_degree += 1
+        self.angle_degree += 0.1
         self.angle_degree %= 360
-        self.angle_label.setText("{0} ".format(self.angle_degree)+self.tr("degrees"))
+        self.angle_label.setText("{0:0.1f} ".format(self.angle_degree)+self.tr("degrees"))
         self.updateTimeLine(self.asyncimageloader.snapshots)
         self.show_snapshots()
 
     def angle_dec(self):
-        self.angle_degree -= 1
+        self.angle_degree -= 0.1
         self.angle_degree %= 360
-        self.angle_label.setText("{0} ".format(self.angle_degree)+self.tr("degrees"))
+        self.angle_label.setText("{0:0.1f} ".format(self.angle_degree)+self.tr("degrees"))
         self.updateTimeLine(self.asyncimageloader.snapshots)
         self.show_snapshots()
 
     def angle_add90(self):
         self.angle_degree += 90
         self.angle_degree %= 360
-        self.angle_label.setText("{0} ".format(self.angle_degree)+self.tr("degrees"))
+        self.angle_label.setText("{0:0.1f} ".format(self.angle_degree)+self.tr("degrees"))
         self.updateTimeLine(self.asyncimageloader.snapshots)
         self.show_snapshots()
 
     def angle_sub90(self):
         self.angle_degree -= 90
         self.angle_degree %= 360
-        self.angle_label.setText("{0} ".format(self.angle_degree)+self.tr("degrees"))
+        self.angle_label.setText("{0:0.1f} ".format(self.angle_degree)+self.tr("degrees"))
         self.updateTimeLine(self.asyncimageloader.snapshots)
         self.show_snapshots()
 
