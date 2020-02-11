@@ -30,7 +30,7 @@ class ImageSelector2(QWidget):
         self.imagebar.setThumbs(thumbs.copy())
         if lastlen == len(thumbs):
             return
-        self.slider.setMax(len(thumbs)-1)
+        self.slider.setMax(max(len(thumbs)-1, 1))
         self.slider.setStart(lasthead)
         if lastlen -1 <= lasttail:
             self.slider.setEnd(len(thumbs)-1)
